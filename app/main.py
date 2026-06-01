@@ -174,9 +174,12 @@ def end_session(session_id: str, db: Session = Depends(get_db),
 
 
 @app.get("/sessions/active", response_model=SessionOut)
-def get_active_session(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    session = db.scalar(select(LectureSession).where(LectureSession.is_active.is_(True))
-                        .order_by(desc(LectureSession.starts_at)))
+def get_active_session(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    q = select(LectureSession).where(LectureSession.is_active.is_(True))
+    # Teachers only see their own active session
+    if current_user.role == UserRole.teacher:
+        q = q.where(LectureSession.teacher_user_id == current_user.id)
+    session = db.scalar(q.order_by(desc(LectureSession.starts_at)))
     if session is None:
         raise HTTPException(status_code=404, detail="No active session")
     return _session_out(session)
