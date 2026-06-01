@@ -7,8 +7,8 @@ import { Clock, MapPin, Users, ArrowRight, FlaskConical, StopCircle } from 'luci
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 
 export default function TeacherDashboard() {
-  const { data: slots = [], isLoading } = useQuery({ queryKey: ['today-schedule'], queryFn: getTodaySchedule })
-  const { data: assignments = [] } = useQuery({ queryKey: ['my-assignments'], queryFn: getMyAssignments })
+  const { data: slots = [], isLoading } = useQuery({ queryKey: ['today-schedule'], queryFn: getTodaySchedule, refetchInterval: 30_000 })
+  const { data: assignments = [] } = useQuery({ queryKey: ['my-assignments'], queryFn: getMyAssignments, refetchInterval: 60_000 })
   const [activeTestSession, setActiveTestSession] = useState<{ id: string; subject: string } | null>(null)
   const [testError, setTestError] = useState<string | null>(null)
   const qc = useQueryClient()

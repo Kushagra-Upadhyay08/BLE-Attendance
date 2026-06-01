@@ -21,18 +21,20 @@ export default function SessionList() {
   const [overrideReason, setOverrideReason] = useState('')
   const qc = useQueryClient()
 
-  const { data: assignments = [] } = useQuery({ queryKey: ['my-assignments'], queryFn: getMyAssignments })
+  const { data: assignments = [] } = useQuery({ queryKey: ['my-assignments'], queryFn: getMyAssignments, refetchInterval: 60_000 })
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['sessions', selectedAssignment],
     queryFn: () => getMySessions(selectedAssignment ? { assignment_id: selectedAssignment } : undefined),
     enabled: !!selectedAssignment,
+    refetchInterval: 30_000,
   })
 
   const { data: summary } = useQuery({
     queryKey: ['summary', selectedSession],
     queryFn: () => getAttendanceSummary(selectedSession!),
     enabled: !!selectedSession,
+    refetchInterval: 15_000,
   })
 
   const overrideMut = useMutation({

@@ -1,12 +1,15 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthContext'
-import { LogOut, LayoutDashboard, Download, Users, BookOpen, Calendar, ShieldCheck, GraduationCap, KeyRound } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { LogOut, LayoutDashboard, Download, Users, BookOpen, Calendar, ShieldCheck, GraduationCap, KeyRound, RefreshCw } from 'lucide-react'
 
 export function Nav() {
   const { user, logout } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
+  const qc = useQueryClient()
   const handleLogout = () => { logout(); nav('/login') }
+  const handleRefresh = () => qc.invalidateQueries()
 
   const link = (to: string, label: string, Icon: React.ElementType) => {
     // exact match for dashboard, prefix match for others
@@ -48,6 +51,9 @@ export function Nav() {
       {user && (
         <div className="ml-auto flex items-center gap-3">
           <span className="text-white/50 text-sm hidden sm:block">{user.full_name}</span>
+          <button onClick={handleRefresh} title="Refresh data" className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+            <RefreshCw size={14} />
+          </button>
           <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
             <LogOut size={14} /> Logout
           </button>

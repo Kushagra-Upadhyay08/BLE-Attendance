@@ -337,6 +337,7 @@ class _TeacherPageState extends State<TeacherPage> {
   bool _isScanning = false;
   Map<String, dynamic>? _summary;
   Timer? _scanRetryTimer;
+  Timer? _refreshTimer;
   StreamSubscription<DiscoveredDevice>? _scanSub;
 
   // Today's schedule slots from server
@@ -352,6 +353,11 @@ class _TeacherPageState extends State<TeacherPage> {
     _initForegroundTask();
     _loadTodaySchedule();
     _loadActiveSession();
+    // Refresh schedule + active session every 30s
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadTodaySchedule();
+      if (_sessionId == null) _loadActiveSession();
+    });
   }
 
   @override
@@ -359,6 +365,7 @@ class _TeacherPageState extends State<TeacherPage> {
     _blePeripheral.stop();
     _scanSub?.cancel();
     _scanRetryTimer?.cancel();
+    _refreshTimer?.cancel();
     FlutterForegroundTask.stopService();
     super.dispose();
   }
@@ -572,7 +579,14 @@ class _TeacherPageState extends State<TeacherPage> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text('Teacher Dashboard', style: TextStyle(fontWeight: FontWeight.w700)),
-        actions: [IconButton(onPressed: _logout, icon: const Icon(Icons.logout_rounded))],
+        actions: [
+          IconButton(
+            onPressed: () { _loadTodaySchedule(); if (_sessionId == null) _loadActiveSession(); },
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+          ),
+          IconButton(onPressed: _logout, icon: const Icon(Icons.logout_rounded)),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -1225,6 +1239,7 @@ class _StudentPageState extends State<StudentPage> {
         elevation: 0,
         title: const Text('Student Dashboard', style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [
+          IconButton(onPressed: _loadActiveSession, icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh'),
           IconButton(onPressed: _showChangePasswordDialog, icon: const Icon(Icons.key_rounded)),
           IconButton(onPressed: _logout, icon: const Icon(Icons.logout_rounded)),
         ],
