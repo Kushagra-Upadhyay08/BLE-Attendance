@@ -179,6 +179,14 @@ def get_active_session(db: Session = Depends(get_db), current_user: User = Depen
     # Teachers only see their own active session
     if current_user.role == UserRole.teacher:
         q = q.where(LectureSession.teacher_user_id == current_user.id)
+    elif current_user.role == UserRole.student:
+        # Students should only see sessions for their enrolled division/batch
+        div_ids = [row for row in db.execute(
+            select(DivisionStudent.division_id).where(DivisionStudent.student_user_id == current_user.id)
+        ).scalars().all()]
+        if div_ids:
+            q = q.join(TeacherAssignment, LectureSession.assignment_id == TeacherAssignment.id)
+            q = q.where(TeacherAssignment.division_id.in_(div_ids))
     session = db.scalar(q.order_by(desc(LectureSession.starts_at)))
     if session is None:
         raise HTTPException(status_code=404, detail="No active session")
