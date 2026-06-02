@@ -1129,12 +1129,16 @@ class _StudentPageState extends State<StudentPage> {
       final attendance = await widget.api.finalizeAttendance(sessionId);
       if (!mounted) return;
 
+      final isPresent = attendance['is_present'] == true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Finalized. Present: ${attendance['is_present']} '
-            '| Ratio: ${attendance['presence_ratio']}',
+            isPresent
+                ? '✅ Attendance finalized — You are marked present!'
+                : '❌ Attendance finalized — Not enough presence detected. Contact your teacher.',
           ),
+          backgroundColor: isPresent ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (error) {
