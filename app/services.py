@@ -35,7 +35,6 @@ def upsert_attendance(
     threshold: float = 0.6,
 ) -> Attendance:
     ratio = compute_presence_ratio(db, session_id, student_user_id)
-    is_present = ratio >= threshold
 
     stmt = select(Attendance).where(
         and_(Attendance.session_id == session_id, Attendance.student_user_id == student_user_id)
@@ -43,6 +42,16 @@ def upsert_attendance(
     row = db.scalar(stmt)
 
     if row is None:
+        # If there are actual detection records, use the ratio to decide.
+        # If there are NO detections (teacher hasn't batch-submitted yet),
+        # default is_present to True when biometric is verified (student is
+        # physically present and authenticated).  The teacher's batch-submit
+        # at session end will overwrite this if needed.
+        if ratio > 0:
+            is_present = ratio >= threshold
+        else:
+            is_present = biometric_verified
+
         row = Attendance(
             session_id=session_id,
             student_user_id=student_user_id,
@@ -53,8 +62,13 @@ def upsert_attendance(
         )
         db.add(row)
     else:
-        row.presence_ratio = ratio
-        row.is_present = is_present
+        # Existing record: only update is_present from ratio if there are
+        # actual detection records.  If the teacher already set is_present
+        # (via override or batch-submit), preserve that decision.
+        if ratio > 0:
+            row.presence_ratio = ratio
+            row.is_present = ratio >= threshold
+        # Always record biometric verification
         row.biometric_verified = biometric_verified
         row.finalized_at = datetime.utcnow() if biometric_verified else row.finalized_at
 
