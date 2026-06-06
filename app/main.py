@@ -979,8 +979,15 @@ def _build_summary(db, session: LectureSession) -> SessionAttendanceSummary:
             is_present = ratio >= 0.6
             bio, overridden, reason = False, False, None
         else:
-            ratio, is_present = att.presence_ratio, att.is_present
             bio, overridden, reason = att.biometric_verified, att.overridden_by_teacher, att.override_reason
+            if overridden:
+                # Teacher manually set the status – respect it
+                ratio, is_present = att.presence_ratio, att.is_present
+            else:
+                # Recalculate from live detections so the dashboard
+                # stays in sync with the Excel export
+                ratio = compute_presence_ratio(db, session.id, user.id)
+                is_present = ratio >= 0.6
         if is_present:
             present += 1
         records.append(AttendanceStudentSummary(
