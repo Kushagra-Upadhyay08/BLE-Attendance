@@ -20,6 +20,7 @@ import 'package:permission_handler/permission_handler.dart';
 const String kTeacherServiceUuid = '0000180D-0000-1000-8000-00805F9B34FB';
 const String kStudentServiceUuid = '0000181C-0000-1000-8000-00805F9B34FB';
 const int kRssiThreshold = -88;
+const double kPresenceThreshold = 0.75;
 const Duration kTeacherDetectionBatchInterval = Duration(seconds: 30);
 const Duration kTeacherPollInterval = Duration(seconds: 10);
 const Duration kStudentSessionPollInterval = Duration(seconds: 15);
@@ -489,7 +490,7 @@ class _TeacherPageState extends State<TeacherPage> {
       // Build final P/A list from local tallies and batch-submit
       final decisions = _studentTallies.values.map((t) => {
         'student_id': t.studentId,
-        'is_present': t.hits > 0 && (t.hits / t.total) >= 0.6,
+        'is_present': t.hits > 0 && (t.hits / t.total) >= 0.75,
       }).toList();
 
       if (decisions.isNotEmpty) {
@@ -738,7 +739,7 @@ class _TeacherPageState extends State<TeacherPage> {
                                   value: ratio,
                                   strokeWidth: 3,
                                   backgroundColor: const Color(0xFFE8E8E8),
-                                  color: ratio >= 0.6 ? Colors.green : Colors.orange,
+                                  color: ratio >= 0.75 ? Colors.green : Colors.orange,
                                 ),
                               ),
                             ]),
@@ -848,6 +849,12 @@ class _StudentPageState extends State<StudentPage> {
 
   // RSSI sliding window
   final List<int> _rssiWindow = [];
+
+  // Local presence tracking (mirrors teacher-side logic)
+  int _totalBeaconReadings = 0;
+  int _inRangeHits = 0;
+  double get _hitRatio => _totalBeaconReadings > 0 ? _inRangeHits / _totalBeaconReadings : 0.0;
+  bool get _meetsThreshold => _hitRatio >= kPresenceThreshold;
 
   @override
   void initState() {
@@ -1007,6 +1014,10 @@ class _StudentPageState extends State<StudentPage> {
                   : (_rssiWindow.reduce((a, b) => a + b) / _rssiWindow.length)
                         .round();
               final ok = avgRssi > kRssiThreshold;
+
+              // Track presence hits for threshold check
+              _totalBeaconReadings++;
+              if (ok) _inRangeHits++;
 
               // Debounce proximity changes
               _updateDebouncedProximity(ok);
@@ -1310,8 +1321,20 @@ class _StudentPageState extends State<StudentPage> {
                 _StatusRow(icon: Icons.broadcast_on_personal_rounded, label: 'Advertising', value: _advertising ? (_studentIdentifier ?? 'On') : 'Off', active: _advertising),
                 const Divider(height: 16),
                 _StatusRow(icon: Icons.how_to_reg_rounded, label: 'Finalization',
-                    value: _finalizationOpen ? 'Open — tap button below' : 'Waiting for teacher',
-                    active: _finalizationOpen),
+                    value: _finalizationOpen
+                        ? (_meetsThreshold ? 'Open — tap button below' : 'Open — but presence too low')
+                        : 'Waiting for teacher',
+                    active: _finalizationOpen && _meetsThreshold),
+                if (_totalBeaconReadings > 0) ...[
+                  const Divider(height: 16),
+                  _StatusRow(
+                    icon: Icons.pie_chart_rounded,
+                    label: 'Presence',
+                    value: '${(_hitRatio * 100).toStringAsFixed(0)}% (need ${(kPresenceThreshold * 100).toStringAsFixed(0)}%)',
+                    active: _meetsThreshold,
+                    isWarning: !_meetsThreshold,
+                  ),
+                ],
                 if (_scanError != null) ...[
                   const Divider(height: 16),
                   _StatusRow(icon: Icons.warning_amber_rounded, label: 'Status', value: _scanError!, active: false, isWarning: true),
@@ -1325,12 +1348,21 @@ class _StudentPageState extends State<StudentPage> {
 
             const SizedBox(height: 16),
 
-            // Finalize button
+            // Finalize button — disabled (gray) if presence is below threshold
             FilledButton.icon(
-              onPressed: _finalizationOpen ? _finalizeWithBiometric : null,
+              onPressed: _finalizationOpen && _meetsThreshold ? _finalizeWithBiometric : null,
               icon: const Icon(Icons.fingerprint_rounded),
               label: const Text('Finalize Attendance (Biometric)'),
             ),
+            if (_finalizationOpen && !_meetsThreshold)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Your presence is ${(_hitRatio * 100).toStringAsFixed(0)}% — need at least ${(kPresenceThreshold * 100).toStringAsFixed(0)}% to finalize.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
 
             if (Platform.isAndroid) ...[
               const SizedBox(height: 10),
