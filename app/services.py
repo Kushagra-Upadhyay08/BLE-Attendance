@@ -32,7 +32,7 @@ def upsert_attendance(
     session_id: str,
     student_user_id: str,
     biometric_verified: bool,
-    threshold: float = 0.6,
+    threshold: float = 0.75,
 ) -> Attendance:
     ratio = compute_presence_ratio(db, session_id, student_user_id)
 
@@ -77,7 +77,7 @@ def build_attendance_if_missing(
     db: Session,
     session_id: str,
     student_user_id: str,
-    threshold: float = 0.6,
+    threshold: float = 0.75,
 ) -> Attendance:
     stmt = select(Attendance).where(
         and_(Attendance.session_id == session_id, Attendance.student_user_id == student_user_id)
