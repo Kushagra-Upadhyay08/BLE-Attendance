@@ -44,13 +44,9 @@ def upsert_attendance(
     if row is None:
         # If there are actual detection records, use the ratio to decide.
         # If there are NO detections (teacher hasn't batch-submitted yet),
-        # default is_present to True when biometric is verified (student is
-        # physically present and authenticated).  The teacher's batch-submit
-        # at session end will overwrite this if needed.
-        if ratio > 0:
-            is_present = ratio >= threshold
-        else:
-            is_present = biometric_verified
+        # do NOT assume present — the teacher's batch-submit at session end
+        # will set the definitive value based on actual BLE proximity data.
+        is_present = ratio >= threshold
 
         row = Attendance(
             session_id=session_id,
