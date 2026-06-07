@@ -1,0 +1,113 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches:
+      - main          # change to your default branch if different
+  workflow_dispatch:  # lets you trigger manually from the Actions tab
+
+# Prevent concurrent builds on the same branch (e.g. rapid pushes)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Java (Flutter needs it) ────────────────────────────────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # ── Flutter ────────────────────────────────────────────────────────────
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.x"   # pin to a channel or exact version
+          channel: stable
+          cache: true
+
+      # ── Keystore (release signing) ─────────────────────────────────────────
+      # Store your keystore as a base64 secret:
+      #   base64 -w 0 your-key.jks > /tmp/b64 && cat /tmp/b64
+      # Then add to repo secrets:
+      #   KEYSTORE_BASE64   – the base64 string
+      #   KEY_ALIAS         – key alias inside the keystore
+      #   KEY_PASSWORD      – key password
+      #   STORE_PASSWORD    – keystore password
+      - name: Decode keystore
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > $RUNNER_TEMP/release.jks
+
+      - name: Write key.properties
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS:       ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:    ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD:  ${{ secrets.STORE_PASSWORD }}
+        run: |
+          cat > mobile/ble_attendance_mobile/android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      # ── Dependencies ───────────────────────────────────────────────────────
+      - name: Install Flutter packages
+        working-directory: mobile/ble_attendance_mobile
+        run: flutter pub get
+
+      # ── Build ──────────────────────────────────────────────────────────────
+      # Produces: mobile/ble_attendance_mobile/build/app/outputs/flutter-apk/app-release.apk
+      - name: Build release APK
+        working-directory: mobile/ble_attendance_mobile
+        run: flutter build apk --release --target-platform android-arm64
+
+      # ── Version tag ───────────────────────────────────────────────────────
+      # Reads the version from pubspec.yaml, e.g. "1.2.0+3"
+      - name: Extract version
+        id: version
+        working-directory: mobile/ble_attendance_mobile
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          BUILD=$(echo $VERSION | tr '+' '-')          # → 1.2.0-3
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "tag=v${BUILD}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "name=BLE Attendance ${BUILD} (${SHORT_SHA})" >> $GITHUB_OUTPUT
+
+      # ── Rename APK ────────────────────────────────────────────────────────
+      - name: Rename APK
+        run: |
+          mv mobile/ble_attendance_mobile/build/app/outputs/flutter-apk/app-release.apk \
+             ble_attendance-${{ steps.version.outputs.tag }}.apk
+
+      # ── Create GitHub Release ─────────────────────────────────────────────
+      - name: Create Release and upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.name }}
+          body: |
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            **Triggered by:** ${{ github.actor }}
+
+            Auto-generated release from CI.
+          files: ble_attendance-${{ steps.version.outputs.tag }}.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
