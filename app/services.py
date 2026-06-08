@@ -42,11 +42,10 @@ def upsert_attendance(
     row = db.scalar(stmt)
 
     if row is None:
-        # If there are actual detection records, use the ratio to decide.
-        # If there are NO detections (teacher hasn't batch-submitted yet),
-        # do NOT assume present — the teacher's batch-submit at session end
-        # will set the definitive value based on actual BLE proximity data.
-        is_present = ratio >= threshold
+        # Both BLE proximity AND biometric verification are required.
+        # A student is only marked present if they have sufficient
+        # detection ratio AND have completed biometric verification.
+        is_present = (ratio >= threshold) and biometric_verified
 
         row = Attendance(
             session_id=session_id,
@@ -58,15 +57,16 @@ def upsert_attendance(
         )
         db.add(row)
     else:
-        # Existing record: only update is_present from ratio if there are
-        # actual detection records.  If the teacher already set is_present
-        # (via override or batch-submit), preserve that decision.
-        if ratio > 0:
-            row.presence_ratio = ratio
-            row.is_present = ratio >= threshold
-        # Always record biometric verification
+        # Always record biometric verification first
         row.biometric_verified = biometric_verified
         row.finalized_at = datetime.utcnow() if biometric_verified else row.finalized_at
+        # Update presence ratio from live detections if available
+        if ratio > 0:
+            row.presence_ratio = ratio
+        # Both BLE proximity AND biometric are required for present.
+        # If the teacher already set is_present (via override or
+        # batch-submit), that will be handled by the override flag.
+        row.is_present = (row.presence_ratio >= threshold) and row.biometric_verified
 
     db.commit()
     db.refresh(row)
@@ -91,7 +91,7 @@ def build_attendance_if_missing(
         session_id=session_id,
         student_user_id=student_user_id,
         presence_ratio=ratio,
-        is_present=ratio >= threshold,
+        is_present=False,  # biometric not done → always absent
         biometric_verified=False,
     )
     db.add(row)
