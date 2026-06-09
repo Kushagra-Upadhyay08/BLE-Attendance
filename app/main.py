@@ -55,7 +55,10 @@ def _run_migrations(engine):
     tables = inspector.get_table_names()
 
     with engine.begin() as conn:
-        conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'admin'"))
+        try:
+            conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'admin'"))
+        except Exception:
+            pass  # SQLite doesn't support ALTER TYPE
 
         if "sessions" in tables:
             cols = {c["name"] for c in inspector.get_columns("sessions")}
