@@ -547,10 +547,11 @@ class _TeacherPageState extends State<TeacherPage> {
   }
 
   List<int> _encodeTeacherPayload(String token, String subject, int seq) {
-    final tokenPart = token.length > 16 ? token.substring(0, 16) : token;
+    final tokenPart = token.length > 10 ? token.substring(0, 10) : token;
     final subjectPart = subject.length > 10 ? subject.substring(0, 10) : subject;
-    return utf8.encode('$tokenPart|$subjectPart|$seq');
+    return utf8.encode('T|$tokenPart|$subjectPart|$seq');
   }
+
 
   Future<void> _endSession() async {
     var sessionId = _sessionId;
@@ -719,7 +720,7 @@ class _TeacherPageState extends State<TeacherPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final sortedStudents = _studentTallies.values.toList()
-      ..sort((a, b) => b.hits.compareTo(a.hits));
+      ..sort((a, b) => a.studentId.compareTo(b.studentId));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F0F5),
@@ -1375,6 +1376,9 @@ class _StudentPageState extends State<StudentPage> {
 
   Map<String, dynamic>? _decodeTeacherPayload(DiscoveredDevice device) {
     if (device.manufacturerData.isEmpty) return null;
+    if (device.serviceUuids.isNotEmpty && !device.serviceUuids.contains(Uuid.parse(kTeacherServiceUuid))) {
+      return null;
+    }
     try {
       final bytes = device.manufacturerData;
       if (bytes.length < 4) return null;
@@ -1382,9 +1386,11 @@ class _StudentPageState extends State<StudentPage> {
       final payload = utf8.decode(bytes.sublist(2));
       if (!payload.contains('|')) return null;
       final parts = payload.split('|');
-      final token = parts[0];
-      final subject = parts.length > 1 ? parts[1].trim() : null;
-      final seq = parts.length > 2 ? int.tryParse(parts[2].trim()) : null;
+      if (parts.length < 4 || parts[0] != 'T') return null;
+
+      final token = parts[1];
+      final subject = parts.length > 2 ? parts[2].trim() : null;
+      final seq = parts.length > 3 ? int.tryParse(parts[3].trim()) : null;
 
       // Validate: token and subject must be printable (no control chars).
       if (token.isEmpty || RegExp(r'[\x00-\x1F]').hasMatch(token)) return null;
