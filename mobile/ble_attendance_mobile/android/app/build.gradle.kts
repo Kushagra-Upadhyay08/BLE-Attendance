@@ -30,6 +30,14 @@ android {
         versionName = flutter.versionName
     }
 
+    // tflite_flutter loads models via memory-mapped I/O, which requires the
+    // .tflite file to be stored uncompressed in the APK.  Without this,
+    // Android's asset packager compresses it and the interpreter throws
+    // "unable to load asset" at runtime.
+    androidResources {
+        noCompress += listOf("tflite")
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
