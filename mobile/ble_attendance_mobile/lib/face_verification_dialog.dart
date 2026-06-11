@@ -129,9 +129,9 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         return;
       }
 
-      // Decode and crop to the first detected face
-      final fullImage = img.decodeImage(bytes);
-      if (fullImage == null) {
+      // Decode + auto-orient (applies EXIF rotation so bounding box coords match)
+      final rawImage = img.decodeImage(bytes);
+      if (rawImage == null) {
         _retriesLeft--;
         setState(() {
           _statusText = 'Failed to process image. $_retriesLeft retries left.';
@@ -141,6 +141,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         try { await File(xFile.path).delete(); } catch (_) {}
         return;
       }
+      final fullImage = img.bakeOrientation(rawImage);
 
       final face = faces.first;
       final rect = face.boundingBox;

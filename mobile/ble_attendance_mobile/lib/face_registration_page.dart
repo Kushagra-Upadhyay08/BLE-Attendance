@@ -126,15 +126,16 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
 
       setState(() => _statusText = 'Processing face…');
 
-      // Decode the full image and crop to the face bounding box
-      final fullImage = img.decodeImage(bytes);
-      if (fullImage == null) {
+      // Decode + auto-orient (applies EXIF rotation so bounding box coords match)
+      final rawImage = img.decodeImage(bytes);
+      if (rawImage == null) {
         setState(() {
           _statusText = 'Failed to process image. Try again.';
           _processing = false;
         });
         return;
       }
+      final fullImage = img.bakeOrientation(rawImage);
 
       final face = faces.first;
       final rect = face.boundingBox;

@@ -18,7 +18,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 class FaceRecognizer {
   static const int inputSize = 112;
   static const int embeddingSize = 192;
-  static const double defaultThreshold = 1.0;
+  static const double defaultThreshold = 1.1;
 
   Interpreter? _interpreter;
 
