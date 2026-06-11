@@ -52,10 +52,11 @@ class FaceRecognizer {
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resized.getPixel(x, y);
-        // Normalise from [0, 255] to [-1, 1]
-        input[idx++] = (pixel.r.toDouble() - 127.5) / 127.5;
-        input[idx++] = (pixel.g.toDouble() - 127.5) / 127.5;
-        input[idx++] = (pixel.b.toDouble() - 127.5) / 127.5;
+        // MobileFaceNet was trained with BGR channel order (OpenCV convention).
+        // Swap R and B when building the input tensor.
+        input[idx++] = (pixel.b.toDouble() - 127.5) / 127.5; // B → channel 0
+        input[idx++] = (pixel.g.toDouble() - 127.5) / 127.5; // G → channel 1
+        input[idx++] = (pixel.r.toDouble() - 127.5) / 127.5; // R → channel 2
       }
     }
 
