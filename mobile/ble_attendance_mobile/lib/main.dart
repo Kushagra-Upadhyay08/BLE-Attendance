@@ -190,7 +190,8 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (_) => TeacherPage(api: _api)),
         );
       } else {
-        // Sync face profile from server if available
+        // Sync face profile from server, then decide whether to prompt registration
+        bool faceRegistered = false;
         try {
           final faceProfile = await _api.getFaceProfile();
           if (faceProfile != null && faceProfile['embedding'] != null) {
@@ -200,13 +201,14 @@ class _LoginPageState extends State<LoginPage> {
               await storage.write(key: 'face_embedding', value: jsonEncode(faceProfile['embedding']));
               await storage.write(key: 'face_registered', value: 'true');
             }
+            faceRegistered = true;
           }
         } catch (_) {
           // Non-critical — face sync failure shouldn't block login
         }
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => StudentPage(api: _api)),
+          MaterialPageRoute(builder: (_) => StudentPage(api: _api, promptFaceSetup: !faceRegistered)),
         );
       }
     } catch (error) {
@@ -1035,8 +1037,9 @@ class _StudentTally {
 // ===========================================================================
 
 class StudentPage extends StatefulWidget {
-  const StudentPage({super.key, required this.api});
+  const StudentPage({super.key, required this.api, this.promptFaceSetup = false});
   final ApiClient api;
+  final bool promptFaceSetup;
 
   @override
   State<StudentPage> createState() => _StudentPageState();
@@ -1089,6 +1092,10 @@ class _StudentPageState extends State<StudentPage> {
     _loadFaceRegistrationStatus();
     _bootstrap();
     _startSessionPolling();
+    // Prompt face setup after first frame if no face registered in DB
+    if (widget.promptFaceSetup) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _promptFaceSetupIfNeeded());
+    }
   }
 
   @override
@@ -1430,6 +1437,29 @@ class _StudentPageState extends State<StudentPage> {
       if (!mounted || !_blePermissionsGranted || _scanning) return;
       await _startScan();
     });
+  }
+
+  Future<void> _promptFaceSetupIfNeeded() async {
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Set Up Face ID', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text(
+          'You don\'t have a face profile registered yet.\n\n'
+          'Face verification is required to finalize attendance. '
+          'Set it up now so you\'re ready when class starts.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Later')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Set Up Now')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _reRegisterFace();
+    }
   }
 
   Future<void> _loadFaceRegistrationStatus() async {

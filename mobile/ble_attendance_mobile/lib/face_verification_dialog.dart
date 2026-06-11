@@ -48,30 +48,48 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
   }
 
   Future<void> _init() async {
-    // Load saved embedding
-    final embStr = await _storage.read(key: 'face_embedding');
-    if (embStr == null) {
-      if (mounted) Navigator.of(context).pop(false);
-      return;
-    }
-    _savedEmbedding = List<double>.from(jsonDecode(embStr) as List);
+    try {
+      // Load saved embedding
+      final embStr = await _storage.read(key: 'face_embedding');
+      if (embStr == null) {
+        if (mounted) Navigator.of(context).pop(false);
+        return;
+      }
+      _savedEmbedding = List<double>.from(jsonDecode(embStr) as List);
 
-    await _recognizer.init();
-    final cameras = await availableCameras();
-    final front = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
-    _cameraController = CameraController(
-      front,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: Platform.isAndroid
-          ? ImageFormatGroup.nv21
-          : ImageFormatGroup.bgra8888,
-    );
-    await _cameraController!.initialize();
-    if (mounted) setState(() => _initialising = false);
+      await _recognizer.init();
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _initialising = false;
+            _statusText = 'No camera found on this device.';
+          });
+        }
+        return;
+      }
+      final front = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      _cameraController = CameraController(
+        front,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: Platform.isAndroid
+            ? ImageFormatGroup.nv21
+            : ImageFormatGroup.bgra8888,
+      );
+      await _cameraController!.initialize();
+      if (mounted) setState(() => _initialising = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _initialising = false;
+          _statusText = 'Camera error: ${e.toString().length > 60 ? e.toString().substring(0, 60) : e}';
+        });
+      }
+    }
   }
 
   @override
@@ -192,7 +210,25 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
       ),
       body: _initialising
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : Column(
+          : (_cameraController == null)
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.white54, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          _statusText,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
               children: [
                 Expanded(
                   child: Stack(

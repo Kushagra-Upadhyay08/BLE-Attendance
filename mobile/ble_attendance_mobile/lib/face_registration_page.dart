@@ -50,22 +50,40 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
   }
 
   Future<void> _init() async {
-    await _recognizer.init();
-    final cameras = await availableCameras();
-    final front = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
-    _cameraController = CameraController(
-      front,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: Platform.isAndroid
-          ? ImageFormatGroup.nv21
-          : ImageFormatGroup.bgra8888,
-    );
-    await _cameraController!.initialize();
-    if (mounted) setState(() => _initialising = false);
+    try {
+      await _recognizer.init();
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _initialising = false;
+            _statusText = 'No camera found on this device.';
+          });
+        }
+        return;
+      }
+      final front = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      _cameraController = CameraController(
+        front,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: Platform.isAndroid
+            ? ImageFormatGroup.nv21
+            : ImageFormatGroup.bgra8888,
+      );
+      await _cameraController!.initialize();
+      if (mounted) setState(() => _initialising = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _initialising = false;
+          _statusText = 'Camera error: ${_shortError(e)}';
+        });
+      }
+    }
   }
 
   @override
@@ -191,7 +209,18 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       ),
       body: _initialising
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : Column(
+          : (_cameraController == null)
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _statusText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                    ),
+                  ),
+                )
+              : Column(
               children: [
                 Expanded(
                   child: Stack(
