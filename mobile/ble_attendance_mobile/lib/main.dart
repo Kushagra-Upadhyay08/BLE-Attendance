@@ -1096,6 +1096,7 @@ class _StudentPageState extends State<StudentPage> {
   StreamSubscription<BleStatus>? _bleStatusSub;
 
   String? _sessionId;
+  String? _sessionToken;
   String? _subject;
   String? _teacherName;
   String? _studentIdentifier;
@@ -1223,6 +1224,7 @@ class _StudentPageState extends State<StudentPage> {
       final wasOpen = _finalizationOpen;
       final isOpen = (session['finalization_open'] as bool?) ?? false;
       final newId = session['id'] as String;
+      final newToken = session['token'] as String?;
 
       // If the session changed (teacher ended and started a new one),
       // reset local hit counters so stale data doesn't carry over.
@@ -1239,6 +1241,7 @@ class _StudentPageState extends State<StudentPage> {
 
       setState(() {
         _sessionId = newId;
+        _sessionToken = newToken;
         _subject = session['subject'] as String;
         _teacherName = session['teacher_name'] as String?;
         _finalizationOpen = isOpen;
@@ -1263,6 +1266,7 @@ class _StudentPageState extends State<StudentPage> {
           _updateStudentAdvertising();
           setState(() {
             _sessionId = null;
+            _sessionToken = null;
             _subject = null;
             _teacherName = null;
             _finalizationOpen = false;
@@ -1352,6 +1356,17 @@ class _StudentPageState extends State<StudentPage> {
             // Look for teacher beacon
             final payload = _decodeTeacherPayload(device);
             if (payload != null) {
+              final token = (payload['token'] as String?)?.toLowerCase();
+              if (_sessionToken == null || token == null) {
+                return; // Ignore if we don't have the active session token yet
+              }
+              final expectedTokenPart = (_sessionToken!.length > 10
+                  ? _sessionToken!.substring(0, 10)
+                  : _sessionToken!).toLowerCase();
+              if (token != expectedTokenPart) {
+                return; // Ignore neighbor teacher's beacon
+              }
+
               final rssi = device.rssi;
               _rssiWindow.add(rssi);
               if (_rssiWindow.length > kRssiWindowSize) {
