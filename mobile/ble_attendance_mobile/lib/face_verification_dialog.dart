@@ -14,13 +14,11 @@ import 'ml/face_recognizer.dart';
 // Liveness challenge types
 // ---------------------------------------------------------------------------
 
-enum _LivenessChallenge { blink, smile, turnLeft, turnRight }
+enum _LivenessChallenge { smile, turnLeft, turnRight }
 
 extension _LivenessLabel on _LivenessChallenge {
   String get instruction {
     switch (this) {
-      case _LivenessChallenge.blink:
-        return 'Blink your eyes';
       case _LivenessChallenge.smile:
         return 'Smile 😊';
       case _LivenessChallenge.turnLeft:
@@ -32,8 +30,6 @@ extension _LivenessLabel on _LivenessChallenge {
 
   IconData get icon {
     switch (this) {
-      case _LivenessChallenge.blink:
-        return Icons.visibility_off_rounded;
       case _LivenessChallenge.smile:
         return Icons.sentiment_very_satisfied_rounded;
       case _LivenessChallenge.turnLeft:
@@ -297,11 +293,6 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog>
 
   bool _evaluateChallenge(_LivenessChallenge c, Face face) {
     switch (c) {
-      case _LivenessChallenge.blink:
-        final left = face.leftEyeOpenProbability ?? 1.0;
-        final right = face.rightEyeOpenProbability ?? 1.0;
-        return left < 0.3 && right < 0.3;
-
       case _LivenessChallenge.smile:
         return (face.smilingProbability ?? 0.0) > 0.7;
 
