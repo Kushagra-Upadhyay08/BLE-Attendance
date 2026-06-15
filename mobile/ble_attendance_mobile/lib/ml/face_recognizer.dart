@@ -33,18 +33,112 @@ class FaceRecognizer {
     _interpreter = null;
   }
 
+  /// Crop the face region from [fullImage] using the given bounding box,
+  /// with additional [padding] (fraction of bbox dimensions) to include
+  /// forehead, chin, and ears — produces more robust embeddings.
+  static img.Image cropFace(
+    img.Image fullImage, {
+    required int bboxX,
+    required int bboxY,
+    required int bboxW,
+    required int bboxH,
+    double padding = 0.2,
+  }) {
+    final padW = (bboxW * padding).round();
+    final padH = (bboxH * padding).round();
+
+    final x = (bboxX - padW).clamp(0, fullImage.width - 1);
+    final y = (bboxY - padH).clamp(0, fullImage.height - 1);
+    final w = (bboxW + 2 * padW).clamp(1, fullImage.width - x);
+    final h = (bboxH + 2 * padH).clamp(1, fullImage.height - y);
+
+    return img.copyCrop(fullImage, x: x, y: y, width: w, height: h);
+  }
+
+  /// Apply per-channel histogram equalisation to normalise brightness and
+  /// contrast, making the embedding more robust to lighting changes.
+  static img.Image equalizeLighting(img.Image src) {
+    final w = src.width;
+    final h = src.height;
+    final totalPixels = w * h;
+    if (totalPixels == 0) return src;
+
+    final result = src.clone();
+
+    for (int c = 0; c < 3; c++) {
+      final hist = List<int>.filled(256, 0);
+      for (int py = 0; py < h; py++) {
+        for (int px = 0; px < w; px++) {
+          final pixel = src.getPixel(px, py);
+          final val =
+              (c == 0 ? pixel.r : c == 1 ? pixel.g : pixel.b)
+                  .toInt()
+                  .clamp(0, 255);
+          hist[val]++;
+        }
+      }
+
+      final cdf = List<int>.filled(256, 0);
+      cdf[0] = hist[0];
+      for (int i = 1; i < 256; i++) {
+        cdf[i] = cdf[i - 1] + hist[i];
+      }
+
+      int cdfMin = totalPixels;
+      for (int i = 0; i < 256; i++) {
+        if (cdf[i] > 0) {
+          cdfMin = cdf[i];
+          break;
+        }
+      }
+
+      final denom = totalPixels - cdfMin;
+      final lut = List<int>.filled(256, 0);
+      if (denom > 0) {
+        for (int i = 0; i < 256; i++) {
+          lut[i] = ((cdf[i] - cdfMin) * 255 ~/ denom).clamp(0, 255);
+        }
+      }
+
+      for (int py = 0; py < h; py++) {
+        for (int px = 0; px < w; px++) {
+          final pixel = result.getPixel(px, py);
+          final origVal =
+              (c == 0 ? pixel.r : c == 1 ? pixel.g : pixel.b)
+                  .toInt()
+                  .clamp(0, 255);
+          final nv = lut[origVal];
+          if (c == 0) {
+            pixel.r = nv as num;
+          } else if (c == 1) {
+            pixel.g = nv as num;
+          } else {
+            pixel.b = nv as num;
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
   /// Generate a 192-dimensional embedding from a cropped face image.
   ///
   /// [faceImage] should already be cropped to the face bounding box.
-  /// The method handles resizing to 112×112 and normalising pixel values.
+  /// The method handles lighting normalisation, resizing to 112×112,
+  /// and normalising pixel values.
   List<double> getEmbedding(img.Image faceImage) {
     final interpreter = _interpreter;
     if (interpreter == null) {
       throw StateError('FaceRecognizer not initialised. Call init() first.');
     }
 
+    // Normalise lighting before feeding to model
+    final normalised = equalizeLighting(faceImage);
+
     // Resize to model input dimensions
-    final resized = img.copyResize(faceImage, width: inputSize, height: inputSize);
+    final resized =
+        img.copyResize(normalised, width: inputSize, height: inputSize);
 
     // Build input tensor [1, 112, 112, 3] with normalised float32 values
     final input = Float32List(1 * inputSize * inputSize * 3);
@@ -64,7 +158,8 @@ class FaceRecognizer {
     final inputTensor = input.reshape([1, inputSize, inputSize, 3]);
 
     // Output tensor [1, 192]
-    final output = List.filled(1 * embeddingSize, 0.0).reshape([1, embeddingSize]);
+    final output =
+        List.filled(1 * embeddingSize, 0.0).reshape([1, embeddingSize]);
 
     interpreter.run(inputTensor, output);
 

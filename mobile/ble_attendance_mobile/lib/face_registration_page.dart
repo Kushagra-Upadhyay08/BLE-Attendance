@@ -31,6 +31,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       performanceMode: FaceDetectorMode.accurate,
+      enableClassification: true,
       enableLandmarks: true,
       minFaceSize: 0.3,
     ),
@@ -140,15 +141,17 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
       final face = faces.first;
       final rect = face.boundingBox;
 
-      // Clamp the bounding box to image bounds
-      final x = rect.left.toInt().clamp(0, fullImage.width - 1);
-      final y = rect.top.toInt().clamp(0, fullImage.height - 1);
-      final w = rect.width.toInt().clamp(1, fullImage.width - x);
-      final h = rect.height.toInt().clamp(1, fullImage.height - y);
+      // Crop with 20% padding for robust embeddings (matches verification)
+      final cropped = FaceRecognizer.cropFace(
+        fullImage,
+        bboxX: rect.left.toInt(),
+        bboxY: rect.top.toInt(),
+        bboxW: rect.width.toInt(),
+        bboxH: rect.height.toInt(),
+        padding: 0.2,
+      );
 
-      final cropped = img.copyCrop(fullImage, x: x, y: y, width: w, height: h);
-
-      // Generate embedding
+      // Generate embedding (includes histogram equalisation)
       final embedding = _recognizer.getEmbedding(cropped);
 
       // Upload to server first
