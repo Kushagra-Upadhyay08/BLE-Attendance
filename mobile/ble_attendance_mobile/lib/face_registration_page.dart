@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
+import 'package:dio/dio.dart';
 
 import 'ml/face_recognizer.dart';
 
@@ -151,6 +152,17 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
         padding: 0.2,
       );
 
+      // Light intensity check
+      final avgBrightness = _calculateAverageBrightness(cropped);
+      if (avgBrightness < 80.0) {
+        setState(() {
+          _statusText = 'Too dark (${avgBrightness.toStringAsFixed(0)}/255). Move to a well-lit area.';
+          _processing = false;
+        });
+        try { await File(xFile.path).delete(); } catch (_) {}
+        return;
+      }
+
       // Generate embedding (includes histogram equalisation)
       final embedding = _recognizer.getEmbedding(cropped);
 
@@ -197,8 +209,34 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
   }
 
   String _shortError(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data['detail'] != null) {
+        return data['detail'].toString();
+      }
+      return 'Server error (${e.response?.statusCode ?? '-'})';
+    }
     final s = e.toString();
     return s.length > 60 ? s.substring(0, 60) : s;
+  }
+
+  double _calculateAverageBrightness(img.Image image) {
+    if (image.width == 0 || image.height == 0) return 0.0;
+    double totalLuminance = 0.0;
+    int pixelCount = 0;
+    for (int y = 0; y < image.height; y++) {
+      for (int x = 0; x < image.width; x++) {
+        final pixel = image.getPixel(x, y);
+        final r = pixel.r.toDouble();
+        final g = pixel.g.toDouble();
+        final b = pixel.b.toDouble();
+        // Standard relative luminance formula
+        final luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        totalLuminance += luminance;
+        pixelCount++;
+      }
+    }
+    return totalLuminance / pixelCount;
   }
 
   @override
@@ -234,6 +272,32 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: CameraPreview(_cameraController!),
+                      ),
+                      // Instruction card overlay at the top
+                      Positioned(
+                        top: 24,
+                        left: 24,
+                        right: 24,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(160),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 20),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Keep your face in the oval under good light intensity.',
+                                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       // Oval guide overlay
                       IgnorePointer(

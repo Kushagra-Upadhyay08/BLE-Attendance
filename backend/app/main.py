@@ -1,5 +1,6 @@
 import io
 import secrets
+import math
 from datetime import datetime, date, timezone, timedelta
 import re
 
@@ -208,26 +209,28 @@ def re_register_face(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Re-register face with server-side rate limiting (2/month)."""
+    """Re-register face. Verifies vector similarity against existing face profile."""
     embedding = payload.get("embedding")
     if not embedding or not isinstance(embedding, list):
         raise HTTPException(status_code=422, detail="embedding must be a list of floats")
 
-    now = _now_ist()
-    timestamps = user.face_reg_timestamps or []
-    # Count registrations this calendar month
-    this_month = [
-        ts for ts in timestamps
-        if ts and datetime.fromisoformat(ts).year == now.year
-        and datetime.fromisoformat(ts).month == now.month
-    ]
-    if len(this_month) >= MAX_FACE_REGISTRATIONS_PER_MONTH:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Re-registration limit reached ({MAX_FACE_REGISTRATIONS_PER_MONTH}/month). Contact your teacher.",
-        )
+    # Verify vector embedding matches existing registered face if present
+    if user.face_embedding:
+        existing = user.face_embedding
+        if len(existing) != len(embedding):
+            raise HTTPException(status_code=422, detail="Invalid embedding dimensions")
+        
+        dist = math.sqrt(sum((a - b) ** 2 for a, b in zip(existing, embedding)))
+        # 1.1 matches defaultThreshold in face_recognizer.dart
+        if dist >= 1.1:
+            raise HTTPException(
+                status_code=400,
+                detail="Face does not match your registered profile. Re-registration rejected."
+            )
 
+    now = _now_ist()
     user.face_embedding = embedding
+    timestamps = user.face_reg_timestamps or []
     timestamps.append(now.isoformat())
     user.face_reg_timestamps = timestamps
     db.commit()
