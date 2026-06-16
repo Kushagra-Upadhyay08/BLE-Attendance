@@ -6,22 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
-import 'package:dio/dio.dart';
 
 import 'ml/face_recognizer.dart';
-
-/// Callback signature for uploading the embedding to the server.
-/// Returns `true` if the server accepted it, `false` or throws on failure.
-typedef EmbeddingUploader = Future<bool> Function(List<double> embedding);
 
 /// Full-screen page for registering a student's face.
 ///
 /// Opens the front camera, shows an oval guide, and once a single face is
-/// detected and captured, generates the embedding, saves it locally **and**
-/// uploads it to the server via [onUpload].
+/// detected and captured, generates the embedding and saves it locally.
 class FaceRegistrationPage extends StatefulWidget {
-  const FaceRegistrationPage({super.key, required this.onUpload});
-  final EmbeddingUploader onUpload;
+  const FaceRegistrationPage({super.key});
+
 
   @override
   State<FaceRegistrationPage> createState() => _FaceRegistrationPageState();
@@ -152,41 +146,64 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
         padding: 0.2,
       );
 
-      // Light intensity check
-      final avgBrightness = _calculateAverageBrightness(cropped);
-      if (avgBrightness < 80.0) {
-        setState(() {
-          _statusText = 'Too dark (${avgBrightness.toStringAsFixed(0)}/255). Move to a well-lit area.';
-          _processing = false;
-        });
-        try { await File(xFile.path).delete(); } catch (_) {}
-        return;
+      // Crop face region without padding strictly for lighting checks (ignores background)
+      final faceOnly = FaceRecognizer.cropFace(
+        fullImage,
+        bboxX: rect.left.toInt(),
+        bboxY: rect.top.toInt(),
+        bboxW: rect.width.toInt(),
+        bboxH: rect.height.toInt(),
+        padding: 0.0,
+      );
+
+      // Analyze face lighting (brightness & evenness)
+      final lighting = FaceRecognizer.analyzeFaceLighting(faceOnly);
+      final avgBrightness = lighting['avg']!;
+
+      if (avgBrightness < 95.0) {
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Low Light Warning', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: const Text(
+                'IF You are registering in low light. You may face issues during attendance verification. so keep your face in light',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
       }
 
-      // Generate embedding (includes histogram equalisation)
+      // Generate embedding (includes preprocessing)
       final embedding = _recognizer.getEmbedding(cropped);
 
-      // Upload to server first
-      setState(() => _statusText = 'Uploading to server…');
-      try {
-        final ok = await widget.onUpload(embedding);
-        if (!ok) {
-          setState(() {
-            _statusText = 'Server rejected the registration. Try again.';
-            _processing = false;
-          });
-          return;
-        }
-      } catch (e) {
-        setState(() {
-          _statusText = 'Upload failed: ${_shortError(e)}';
-          _processing = false;
-        });
-        return;
-      }
+      setState(() => _statusText = 'Saving face profile…');
 
-      // Save locally after server confirms
-      await _storage.write(key: 'face_embedding', value: jsonEncode(embedding));
+      // Save locally
+      final embStr = await _storage.read(key: 'face_embedding');
+      List<List<double>> embeddingsList = [];
+      if (embStr != null) {
+        final decoded = jsonDecode(embStr);
+        if (decoded is List) {
+          if (decoded.isNotEmpty && decoded[0] is List) {
+            embeddingsList = (decoded as List)
+                .map((item) => List<double>.from(item as List))
+                .toList();
+          } else {
+            embeddingsList = [List<double>.from(decoded)];
+          }
+        }
+      }
+      
+      embeddingsList.add(embedding);
+      await _storage.write(key: 'face_embedding', value: jsonEncode(embeddingsList));
       await _storage.write(key: 'face_registered', value: 'true');
 
       // Clean up the temp photo file
@@ -209,34 +226,8 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage> {
   }
 
   String _shortError(Object e) {
-    if (e is DioException) {
-      final data = e.response?.data;
-      if (data is Map && data['detail'] != null) {
-        return data['detail'].toString();
-      }
-      return 'Server error (${e.response?.statusCode ?? '-'})';
-    }
     final s = e.toString();
     return s.length > 60 ? s.substring(0, 60) : s;
-  }
-
-  double _calculateAverageBrightness(img.Image image) {
-    if (image.width == 0 || image.height == 0) return 0.0;
-    double totalLuminance = 0.0;
-    int pixelCount = 0;
-    for (int y = 0; y < image.height; y++) {
-      for (int x = 0; x < image.width; x++) {
-        final pixel = image.getPixel(x, y);
-        final r = pixel.r.toDouble();
-        final g = pixel.g.toDouble();
-        final b = pixel.b.toDouble();
-        // Standard relative luminance formula
-        final luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-        totalLuminance += luminance;
-        pixelCount++;
-      }
-    }
-    return totalLuminance / pixelCount;
   }
 
   @override

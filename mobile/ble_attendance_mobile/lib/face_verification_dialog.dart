@@ -52,7 +52,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
   int _retriesLeft = 3;
   bool _matched = false;
   bool _processing = false;
-  List<double>? _savedEmbedding;
+  List<List<double>>? _savedEmbeddings;
 
   // -----------------------------------------------------------------------
   // Lifecycle
@@ -84,7 +84,20 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         if (mounted) Navigator.of(context).pop(false);
         return;
       }
-      _savedEmbedding = List<double>.from(jsonDecode(embStr) as List);
+      final decoded = jsonDecode(embStr);
+      List<List<double>> embeddingsList = [];
+      if (decoded is List) {
+        if (decoded.isNotEmpty) {
+          if (decoded[0] is List) {
+            embeddingsList = (decoded as List)
+                .map((item) => List<double>.from(item as List))
+                .toList();
+          } else {
+            embeddingsList = [List<double>.from(decoded)];
+          }
+        }
+      }
+      _savedEmbeddings = embeddingsList;
 
       await _recognizer.init();
 
@@ -131,7 +144,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
 
   Future<void> _captureAndVerify() async {
     if (_cam == null || !_cam!.value.isInitialized) return;
-    if (_savedEmbedding == null) return;
+    if (_savedEmbeddings == null || _savedEmbeddings!.isEmpty) return;
     if (_processing) return;
 
     setState(() {
@@ -175,9 +188,57 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         padding: 0.2,
       );
 
+      // Crop face region without padding strictly for lighting checks (ignores background)
+      final faceOnly = FaceRecognizer.cropFace(
+        fullImage,
+        bboxX: rect.left.toInt(),
+        bboxY: rect.top.toInt(),
+        bboxW: rect.width.toInt(),
+        bboxH: rect.height.toInt(),
+        padding: 0.0,
+      );
+
+      // Analyze face lighting (brightness & evenness)
+      final lighting = FaceRecognizer.analyzeFaceLighting(faceOnly);
+      final avgBrightness = lighting['avg']!;
+      final lightingDiff = lighting['diff']!;
+
+      if (avgBrightness < 95.0) {
+        _handleFailedAttempt(
+          'Too dark (${avgBrightness.toStringAsFixed(0)}/255). Move to a well-lit area.',
+        );
+        try {
+          await File(xFile.path).delete();
+        } catch (_) {}
+        return;
+      }
+
+      if (lightingDiff > 65.0) {
+        _handleFailedAttempt(
+          'Lighting is too uneven. Avoid direct side/backlight.',
+        );
+        try {
+          await File(xFile.path).delete();
+        } catch (_) {}
+        return;
+      }
+
       final embedding = _recognizer.getEmbedding(cropped);
-      final dist = _recognizer.distance(embedding, _savedEmbedding!);
-      final match = _recognizer.isMatch(embedding, _savedEmbedding!);
+      
+      bool match = false;
+      double bestDist = 999.0;
+      
+      if (_savedEmbeddings != null) {
+        for (final saved in _savedEmbeddings!) {
+          final dist = _recognizer.distance(embedding, saved);
+          if (dist < bestDist) {
+            bestDist = dist;
+          }
+          if (_recognizer.isMatch(embedding, saved)) {
+            match = true;
+          }
+        }
+      }
 
       try {
         await File(xFile.path).delete();
@@ -188,13 +249,13 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
           _matched = true;
           _phase = _Phase.result;
           _statusText =
-              '✅ Face verified! (distance: ${dist.toStringAsFixed(2)})';
+              '✅ Face verified! (distance: ${bestDist.toStringAsFixed(2)})';
         });
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) Navigator.of(context).pop(true);
       } else {
         _handleFailedAttempt(
-          'Face does not match (distance: ${dist.toStringAsFixed(2)}).',
+          'Face does not match (distance: ${bestDist.toStringAsFixed(2)}).',
         );
       }
     } catch (e) {

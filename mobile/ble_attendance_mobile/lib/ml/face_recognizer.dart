@@ -122,6 +122,41 @@ class FaceRecognizer {
     return result;
   }
 
+  /// Preprocesses face image with brightness boost, contrast adjustment,
+  /// and histogram equalization.
+  static img.Image preprocessFace(img.Image src) {
+    final result = src.clone();
+    
+    // 1. Brightness boost
+    const double brightnessBoost = 15.0;
+    // 2. Contrast adjustment
+    const double contrastFactor = 1.15; // > 1 increases contrast
+
+    for (int y = 0; y < result.height; y++) {
+      for (int x = 0; x < result.width; x++) {
+        final pixel = result.getPixel(x, y);
+        
+        // Boost brightness
+        double r = pixel.r.toDouble() + brightnessBoost;
+        double g = pixel.g.toDouble() + brightnessBoost;
+        double b = pixel.b.toDouble() + brightnessBoost;
+
+        // Adjust contrast: new_val = 128 + (old_val - 128) * factor
+        r = 128.0 + (r - 128.0) * contrastFactor;
+        g = 128.0 + (g - 128.0) * contrastFactor;
+        b = 128.0 + (b - 128.0) * contrastFactor;
+
+        // Clamp to [0, 255]
+        pixel.r = r.clamp(0.0, 255.0);
+        pixel.g = g.clamp(0.0, 255.0);
+        pixel.b = b.clamp(0.0, 255.0);
+      }
+    }
+
+    // 3. Histogram equalization
+    return equalizeLighting(result);
+  }
+
   /// Generate a 192-dimensional embedding from a cropped face image.
   ///
   /// [faceImage] should already be cropped to the face bounding box.
@@ -133,12 +168,12 @@ class FaceRecognizer {
       throw StateError('FaceRecognizer not initialised. Call init() first.');
     }
 
-    // Normalise lighting before feeding to model
-    final normalised = equalizeLighting(faceImage);
+    // Preprocess face image (brightness, contrast, and histogram equalization)
+    final preprocessed = preprocessFace(faceImage);
 
     // Resize to model input dimensions
     final resized =
-        img.copyResize(normalised, width: inputSize, height: inputSize);
+        img.copyResize(preprocessed, width: inputSize, height: inputSize);
 
     // Build input tensor [1, 112, 112, 3] with normalised float32 values
     final input = Float32List(1 * inputSize * inputSize * 3);
@@ -201,5 +236,45 @@ class FaceRecognizer {
     norm = sqrt(norm);
     if (norm == 0) return vec;
     return vec.map((v) => v / norm).toList();
+  }
+
+  /// Analyze the lighting of a face image, returning the average brightness
+  /// and the difference in brightness between the left and right halves.
+  static Map<String, double> analyzeFaceLighting(img.Image faceImage) {
+    if (faceImage.width == 0 || faceImage.height == 0) {
+      return {'avg': 0.0, 'diff': 0.0};
+    }
+
+    final midX = faceImage.width ~/ 2;
+    double leftLuminance = 0.0;
+    int leftCount = 0;
+    double rightLuminance = 0.0;
+    int rightCount = 0;
+
+    for (int y = 0; y < faceImage.height; y++) {
+      for (int x = 0; x < faceImage.width; x++) {
+        final pixel = faceImage.getPixel(x, y);
+        final r = pixel.r.toDouble();
+        final g = pixel.g.toDouble();
+        final b = pixel.b.toDouble();
+        // Standard relative luminance formula
+        final luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        if (x < midX) {
+          leftLuminance += luminance;
+          leftCount++;
+        } else {
+          rightLuminance += luminance;
+          rightCount++;
+        }
+      }
+    }
+
+    final avgLeft = leftCount > 0 ? leftLuminance / leftCount : 0.0;
+    final avgRight = rightCount > 0 ? rightLuminance / rightCount : 0.0;
+    final avgTotal = (leftLuminance + rightLuminance) / (leftCount + rightCount);
+    final difference = (avgLeft - avgRight).abs();
+
+    return {'avg': avgTotal, 'diff': difference};
   }
 }

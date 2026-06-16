@@ -185,7 +185,7 @@ def register_face(
         raise HTTPException(status_code=422, detail="embedding must be a list of floats")
 
     now = _now_ist()
-    user.face_embedding = embedding
+    user.face_embedding = [embedding]  # Save as a list containing the primary embedding
     timestamps = user.face_reg_timestamps or []
     timestamps.append(now.isoformat())
     user.face_reg_timestamps = timestamps
@@ -209,27 +209,40 @@ def re_register_face(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Re-register face. Verifies vector similarity against existing face profile."""
+    """Re-register face. Verifies similarity against the primary embedding and appends it."""
     embedding = payload.get("embedding")
     if not embedding or not isinstance(embedding, list):
         raise HTTPException(status_code=422, detail="embedding must be a list of floats")
 
+    from sqlalchemy.orm.attributes import flag_modified
+
     # Verify vector embedding matches existing registered face if present
     if user.face_embedding:
-        existing = user.face_embedding
-        if len(existing) != len(embedding):
+        existing_list = user.face_embedding
+        # Handle backward compatibility: migrate single list to list-of-lists
+        if len(existing_list) > 0 and not isinstance(existing_list[0], list):
+            existing_list = [existing_list]
+
+        primary = existing_list[0]
+        if len(primary) != len(embedding):
             raise HTTPException(status_code=422, detail="Invalid embedding dimensions")
         
-        dist = math.sqrt(sum((a - b) ** 2 for a, b in zip(existing, embedding)))
+        dist = math.sqrt(sum((a - b) ** 2 for a, b in zip(primary, embedding)))
         # 0.85 matches defaultThreshold in face_recognizer.dart
         if dist >= 0.85:
             raise HTTPException(
                 status_code=400,
-                detail="Face does not match your registered profile. Re-registration rejected."
+                detail="Face does not match original profile."
             )
+        
+        # Append new embedding alongside old ones
+        existing_list.append(embedding)
+        user.face_embedding = existing_list
+        flag_modified(user, "face_embedding")
+    else:
+        user.face_embedding = [embedding]
 
     now = _now_ist()
-    user.face_embedding = embedding
     timestamps = user.face_reg_timestamps or []
     timestamps.append(now.isoformat())
     user.face_reg_timestamps = timestamps

@@ -520,7 +520,8 @@ class _TeacherPageState extends State<TeacherPage> {
         final tally = _studentTallies.putIfAbsent(
           studentId, () => _StudentTally(studentId: studentId),
         );
-        tally.hits = hits;
+        // Track the maximum hits ever seen to prevent display fluctuation
+        if (hits > tally.hits) tally.hits = hits;
         tally.total = _globalTotalHits;
         tally.latestRssi = rssi;
         tally.latestAt = DateTime.now();
@@ -1594,12 +1595,7 @@ class _StudentPageState extends State<StudentPage> {
       // Navigate to face registration first
       if (!mounted) return;
       final registered = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => FaceRegistrationPage(
-          onUpload: (embedding) async {
-            await widget.api.registerFace(embedding);
-            return true;
-          },
-        )),
+        MaterialPageRoute(builder: (_) => const FaceRegistrationPage()),
       );
       if (registered == true) {
         setState(() => _faceRegistered = true);
@@ -1653,13 +1649,7 @@ class _StudentPageState extends State<StudentPage> {
 
     if (!mounted) return;
     final registered = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => FaceRegistrationPage(
-        onUpload: (embedding) async {
-          // Server enforces 2/month limit — will throw 429 if exceeded
-          await widget.api.reRegisterFace(embedding);
-          return true;
-        },
-      )),
+      MaterialPageRoute(builder: (_) => const FaceRegistrationPage()),
     );
     if (registered == true && mounted) {
       setState(() => _faceRegistered = true);
@@ -1864,7 +1854,7 @@ class _StudentPageState extends State<StudentPage> {
 
             // Finalize button
             FilledButton.icon(
-              onPressed: _finalizationOpen
+              onPressed: (_finalizationOpen && !_biometricDone)
                   ? () {
                       if (!_meetsThreshold) {
                         _showNotEligibleDialog();
