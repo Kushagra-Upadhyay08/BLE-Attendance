@@ -4,35 +4,37 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 
-  --color-background: #f7fafc;
-  --color-foreground: #243041;
-  --color-card: #ffffff;
-  --color-card-foreground: #243041;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #243041;
-  --color-primary: #8fbce6;
-  --color-primary-foreground: #183044;
-  --color-secondary: #eef4f8;
-  --color-secondary-foreground: #243041;
-  --color-muted: #eef4f8;
-  --color-muted-foreground: #66758a;
-  --color-accent: #eef4f8;
-  --color-accent-foreground: #243041;
-  --color-destructive: #e08a8a;
+  --color-background: #f7f6f2;
+  --color-foreground: #30322f;
+  --color-card: #fffefa;
+  --color-card-foreground: #30322f;
+  --color-popover: #fffefa;
+  --color-popover-foreground: #30322f;
+  --color-primary: #38443d;
+  --color-primary-foreground: #fbfaf6;
+  --color-secondary: #ecefe8;
+  --color-secondary-foreground: #30322f;
+  --color-muted: #ecefe8;
+  --color-muted-foreground: #74796f;
+  --color-accent: #eef2ed;
+  --color-accent-foreground: #30322f;
+  --color-destructive: #c97268;
   --color-destructive-foreground: #ffffff;
-  --color-border: #d8e2ea;
-  --color-input: #d8e2ea;
-  --color-ring: #8fbce6;
-  --radius: 0.75rem;
+  --color-border: #deded6;
+  --color-input: #d9d9d1;
+  --color-ring: #9eb6ad;
+  --radius: 0.5rem;
 
-  --color-surface-2: #eef4f8;
-  --color-primary-soft: #8fbce6;
-  --color-mint: #a7dccb;
-  --color-blush: #e9b8c5;
-  --color-butter: #f4d9a6;
-  --color-success: #87c9a4;
-  --color-warning: #e8b86d;
-  --color-error: #e08a8a;
+  --color-surface-2: #eef0ea;
+  --color-primary-soft: #dbe5df;
+  --color-mint: #c8ded4;
+  --color-blush: #efd8d6;
+  --color-butter: #f0e4bc;
+  --color-success: #94bea6;
+  --color-warning: #d6b76f;
+  --color-error: #c97268;
+  --color-pop: #c98278;
+  --color-pop-soft: #f0dedb;
 }
 
 @keyframes page-in {
@@ -90,6 +92,6 @@
   h1,
   h2 {
     font-family: var(--font-serif);
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 }

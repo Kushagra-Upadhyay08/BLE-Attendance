@@ -155,7 +155,7 @@ export function Schedule() {
                       <td className="px-5 py-4 text-muted-foreground">{s.start_date}</td>
                       <td className="px-5 py-4 text-muted-foreground">{s.end_date}</td>
                       <td className="px-5 py-4">{s.is_active ? <StatusChip tone="active">Active</StatusChip> : <StatusChip tone="neutral">Inactive</StatusChip>}</td>
-                      <td className="px-5 py-4 text-right">{!s.is_active && <button onClick={() => activateMut.mutate(s.id)} className="text-sm font-medium text-[#4f7896] hover:underline">Activate</button>}</td>
+                      <td className="px-5 py-4 text-right">{!s.is_active && <button onClick={() => activateMut.mutate(s.id)} className="text-sm font-medium text-[#404a43] hover:underline">Activate</button>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -346,10 +346,10 @@ export function Schedule() {
                             return (
                               <td key={di} className="border-r border-border px-2 py-1.5 align-top">
                                 {daySlots.map((s) => (
-                                  <div key={s.id} className="mb-1 flex items-center justify-between gap-1 rounded-xl border border-[#cfdde9] bg-primary/8 px-2 py-1.5">
+                                  <div key={s.id} className="mb-1 flex items-center justify-between gap-1 rounded-xl border border-border bg-surface-2/70 px-2 py-1.5">
                                     <div>
-                                      <span className="text-xs font-medium text-[#4f7896]">{s.subject_code}</span>
-                                      {s.batch_label && <span className="ml-1 text-xs text-[#7990a3]">({s.batch_label})</span>}
+                                      <span className="text-xs font-medium text-[#404a43]">{s.subject_code}</span>
+                                      {s.batch_label && <span className="ml-1 text-xs text-muted-foreground">({s.batch_label})</span>}
                                       {s.room && <div className="text-[11px] text-muted-foreground">{s.room}</div>}
                                     </div>
                                     <button onClick={() => delSlotMut.mutate(s.id)} className="text-muted-foreground hover:text-[#a85a4c]"><Trash2 className="size-3.5" /></button>
