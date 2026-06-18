@@ -39,13 +39,8 @@ const adminNav: NavItem[] = [
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid size-8 place-items-center rounded-lg border border-border bg-primary text-[0.7rem] tracking-wider text-primary-foreground">
-        BLE
-      </span>
-      <span className="font-serif text-[1.05rem] tracking-tight text-foreground">
-        Attendance
-      </span>
+    <div className="flex items-center">
+      <span className="font-serif text-[1.08rem] text-foreground">Attendance</span>
     </div>
   );
 }
@@ -82,7 +77,7 @@ export function Shell({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-[color-mix(in_srgb,var(--card)_82%,transparent)] backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border bg-[color-mix(in_srgb,var(--card)_88%,transparent)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-6 px-5 sm:px-8">
           <Brand />
 
@@ -94,12 +89,12 @@ export function Shell({
                   key={item.key}
                   onClick={() => onNavigate(item.key)}
                   className={cn(
-                    "relative rounded-lg px-3 py-1.5 text-sm transition-colors",
+                    "relative rounded-md px-3 py-1.5 text-sm transition-colors",
                     active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {item.label}
-                  {active && <span className="absolute inset-x-3 -bottom-[21px] h-0.5 rounded-full bg-primary" />}
+                  {active && <span className="absolute inset-x-3 -bottom-[21px] h-0.5 rounded-full bg-pop" />}
                 </button>
               );
             })}
@@ -116,22 +111,22 @@ export function Shell({
             </span>
 
             <div className="group relative hidden md:block">
-              <button className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition-colors hover:bg-surface-2">
-                <span className="grid size-8 place-items-center rounded-full bg-primary/10 text-xs text-[#4f7896]">
+              <button className="flex items-center gap-2 rounded-md py-1 pl-1 pr-2.5 transition-colors hover:bg-surface-2">
+                <span className="grid size-8 place-items-center rounded-full bg-primary-soft text-xs text-[#51635a]">
                   {initials(userName)}
                 </span>
                 <span className="max-w-[120px] truncate text-sm">{userName}</span>
               </button>
-              <div className="invisible absolute right-0 top-full w-48 translate-y-1 rounded-xl border border-border bg-card p-1.5 opacity-0 shadow-[0_12px_32px_-12px_rgba(42,41,37,0.25)] transition-all group-hover:visible group-hover:translate-y-2 group-hover:opacity-100">
+              <div className="invisible absolute right-0 top-full w-48 translate-y-1 rounded-lg border border-border bg-card p-1.5 opacity-0 shadow-[0_12px_32px_-12px_rgba(42,41,37,0.18)] transition-all group-hover:visible group-hover:translate-y-2 group-hover:opacity-100">
                 <button
                   onClick={() => onNavigate("password")}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-surface-2 hover:text-foreground"
                 >
                   <KeyRound className="size-4" /> Change password
                 </button>
                 <button
                   onClick={onLogout}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-error/10 hover:text-[#a85a4c]"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-error/10 hover:text-[#a85a4c]"
                 >
                   <LogOut className="size-4" /> Sign out
                 </button>
@@ -140,7 +135,7 @@ export function Shell({
 
             <button
               onClick={() => setMobileOpen((v) => !v)}
-              className="grid size-9 place-items-center rounded-lg border border-border text-muted-foreground md:hidden"
+              className="grid size-9 place-items-center rounded-md border border-border text-muted-foreground md:hidden"
             >
               {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
@@ -161,8 +156,8 @@ export function Shell({
                       setMobileOpen(false);
                     }}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm",
-                      active ? "bg-primary/8 text-foreground" : "text-muted-foreground hover:bg-surface-2"
+                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm",
+                      active ? "bg-primary-soft text-foreground" : "text-muted-foreground hover:bg-surface-2"
                     )}
                   >
                     <Icon className="size-[18px]" /> {item.label}

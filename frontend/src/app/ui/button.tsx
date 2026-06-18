@@ -11,7 +11,7 @@ export function Button({
 }) {
   const variantClass =
     variant === "outline"
-      ? "border border-border bg-white text-foreground hover:bg-surface-2"
+      ? "border border-border bg-card text-foreground hover:bg-surface-2"
       : variant === "ghost"
       ? "bg-transparent text-foreground hover:bg-surface-2"
       : variant === "destructive"
@@ -24,7 +24,7 @@ export function Button({
     <button
       {...props}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all disabled:pointer-events-none disabled:opacity-50",
         variantClass,
         sizeClass,
         className

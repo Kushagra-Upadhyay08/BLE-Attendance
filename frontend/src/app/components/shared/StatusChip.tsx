@@ -16,18 +16,18 @@ type Tone =
   | "lab";
 
 const toneStyles: Record<Tone, string> = {
-  active: "bg-success/25 text-[#3d6b4d] ring-success/30",
-  success: "bg-success/25 text-[#3d6b4d] ring-success/30",
-  present: "bg-success/25 text-[#3d6b4d] ring-success/30",
-  locked: "bg-[#8190a1]/15 text-[#5e6b78] ring-[#8190a1]/25",
-  ended: "bg-[#8190a1]/15 text-[#5e6b78] ring-[#8190a1]/25",
-  neutral: "bg-[#8190a1]/15 text-[#5e6b78] ring-[#8190a1]/25",
-  editable: "bg-butter/35 text-[#8f6b1e] ring-butter/40",
-  warning: "bg-warning/25 text-[#8a651f] ring-warning/35",
-  absent: "bg-error/20 text-[#a85a4c] ring-error/30",
-  info: "bg-primary/15 text-[#4f7896] ring-primary/25",
-  lecture: "bg-primary/15 text-[#4f7896] ring-primary/25",
-  lab: "bg-blush/30 text-[#9b6178] ring-blush/40",
+  active: "bg-success/20 text-[#4f735f] ring-success/25",
+  success: "bg-success/20 text-[#4f735f] ring-success/25",
+  present: "bg-success/20 text-[#4f735f] ring-success/25",
+  locked: "bg-[#8d968d]/12 text-[#626a62] ring-[#8d968d]/22",
+  ended: "bg-[#8d968d]/12 text-[#626a62] ring-[#8d968d]/22",
+  neutral: "bg-[#8d968d]/12 text-[#626a62] ring-[#8d968d]/22",
+  editable: "bg-butter/30 text-[#876d39] ring-butter/35",
+  warning: "bg-warning/20 text-[#876d39] ring-warning/30",
+  absent: "bg-error/16 text-[#9c5f58] ring-error/25",
+  info: "bg-primary-soft text-[#51635a] ring-primary/15",
+  lecture: "bg-primary-soft text-[#51635a] ring-primary/15",
+  lab: "bg-blush/45 text-[#9c6865] ring-blush/50",
 };
 
 const labels: Partial<Record<Tone, string>> = {

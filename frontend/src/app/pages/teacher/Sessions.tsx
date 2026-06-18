@@ -204,7 +204,7 @@ export function Sessions() {
               <button
                 key={s.id}
                 onClick={() => setSelectedSession(s.id)}
-                className="rounded-2xl border border-border bg-card p-5 text-left transition-all hover:shadow-[0_14px_26px_-18px_rgba(42,41,37,0.28)]"
+                className="rounded-lg border border-border bg-card p-5 text-left transition-all hover:shadow-[0_14px_26px_-20px_rgba(42,41,37,0.18)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -239,7 +239,7 @@ export function Sessions() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search classes"
-              className="h-11 w-72 rounded-xl border border-border bg-white pl-9 pr-4 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
+              className="h-11 w-72 rounded-lg border border-border bg-card pl-9 pr-4 text-sm outline-none transition focus:border-ring focus:ring-4 focus:ring-ring/15"
             />
           </div>
         }
@@ -259,7 +259,7 @@ export function Sessions() {
               <button
                 key={a.id}
                 onClick={() => setSelectedAssignment(a.id)}
-                className="rounded-2xl border border-border bg-card p-5 text-left transition-all hover:shadow-[0_14px_26px_-18px_rgba(42,41,37,0.28)]"
+                className="rounded-lg border border-border bg-card p-5 text-left transition-all hover:shadow-[0_14px_26px_-20px_rgba(42,41,37,0.18)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
