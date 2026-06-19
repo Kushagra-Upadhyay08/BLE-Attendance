@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { AlertCircle, Loader2, WifiOff } from "lucide-react";
 import { useAuth } from "../../components/AuthContext";
 import { Button } from "../ui/button";
 import { Field, Panel } from "../components/shared/Primitives";
 import { cn } from "../components/ui/utils";
 import type { Role } from "../lib/types";
+import api from "../../api/client";
 
 export function Login() {
   const { login } = useAuth();
@@ -13,6 +14,44 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [serverChecking, setServerChecking] = useState(true);
+  const [serverStatus, setServerStatus] = useState<"connecting" | "online" | "offline">("connecting");
+
+  useEffect(() => {
+    let active = true;
+    api.get("/health")
+      .then(() => {
+        if (active) {
+          setServerStatus("online");
+          setServerChecking(false);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          console.error("Backend health check failed:", err);
+          setServerStatus("offline");
+          setServerChecking(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleRetry = () => {
+    setServerChecking(true);
+    setServerStatus("connecting");
+    api.get("/health")
+      .then(() => {
+        setServerStatus("online");
+        setServerChecking(false);
+      })
+      .catch((err) => {
+        console.error("Backend health check retry failed:", err);
+        setServerStatus("offline");
+        setServerChecking(false);
+      });
+  };
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,67 +81,92 @@ export function Login() {
                 <p className="mt-1 text-sm text-muted-foreground">Use your campus ID and password.</p>
               </div>
 
-              <form onSubmit={submit} className="space-y-5 px-8 py-6 md:px-12 md:pb-12">
-                <div className="inline-flex w-full rounded-lg bg-slate-100 p-1">
-                  {(["teacher", "admin"] as Role[]).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={cn(
-                        "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-all",
-                        role === r ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-
-                <Field label={role === "admin" ? "Admin ID" : "Teacher ID"}>
-                  <input
-                    value={id}
-                    onChange={(e) => setId(e.target.value)}
-                    placeholder={role === "admin" ? "ADM-0001" : "FAC-1042"}
-                    autoComplete="username"
-                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-foreground outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                </Field>
-
-                <Field label="Password">
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className="h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-foreground outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                </Field>
-
-                {error && (
-                  <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-inset ring-red-200">
-                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                    {error}
+              {serverChecking ? (
+                <div className="flex flex-col items-center justify-center px-8 py-12 md:px-12 md:pb-12 text-center space-y-4">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Connecting to server...</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Please wait while the server wakes up. This may take up to a minute.
+                    </p>
                   </div>
-                )}
-
-                <Button type="submit" disabled={loading} className="h-11 w-full rounded-lg shadow-md">
-                  {loading ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Signing in…
-                    </>
-                  ) : (
-                    "Sign in"
-                  )}
-                </Button>
-
-                <div className="text-center">
-                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                    Forgot password?
-                  </a>
                 </div>
-              </form>
+              ) : serverStatus === "offline" ? (
+                <div className="flex flex-col items-center justify-center px-8 py-12 md:px-12 md:pb-12 text-center space-y-4">
+                  <WifiOff className="size-8 text-red-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Cannot connect to server</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      The backend server appears to be offline.
+                    </p>
+                  </div>
+                  <Button onClick={handleRetry} className="h-9 px-4 rounded-lg text-xs shadow-sm mt-2">
+                    Retry Connection
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={submit} className="space-y-5 px-8 py-6 md:px-12 md:pb-12">
+                  <div className="inline-flex w-full rounded-lg bg-slate-100 p-1">
+                    {(["teacher", "admin"] as Role[]).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRole(r)}
+                        className={cn(
+                          "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-all",
+                          role === r ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+
+                  <Field label={role === "admin" ? "Admin ID" : "Teacher ID"}>
+                    <input
+                      value={id}
+                      onChange={(e) => setId(e.target.value)}
+                      placeholder={role === "admin" ? "ADM-0001" : "FAC-1042"}
+                      autoComplete="username"
+                      className="h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-foreground outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  </Field>
+
+                  <Field label="Password">
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      className="h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-foreground outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  </Field>
+
+                  {error && (
+                    <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-inset ring-red-200">
+                      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                      {error}
+                    </div>
+                  )}
+
+                  <Button type="submit" disabled={loading} className="h-11 w-full rounded-lg shadow-md">
+                    {loading ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Signing in…
+                      </>
+                    ) : (
+                      "Sign in"
+                    )}
+                  </Button>
+
+                  <div className="text-center">
+                    <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                      Forgot password?
+                    </a>
+                  </div>
+                </form>
+              )}
             </Panel>
           </div>
         </div>
